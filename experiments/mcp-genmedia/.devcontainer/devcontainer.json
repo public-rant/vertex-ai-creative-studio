@@ -3,7 +3,7 @@
   "dockerFile": "Dockerfile",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/devcontainers/features/gcloud-cli:1": {}
+    "ghcr.io/jajera/features/gcloud-cli:1": {}
   },
   "postCreateCommand": "/home/vscode/.devcontainer/scripts/configure-gemini.sh",
   "remoteUser": "vscode",
