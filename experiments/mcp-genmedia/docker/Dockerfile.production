@@ -1,0 +1,97 @@
+# Multi-stage build for production MCP Genmedia + Gemini CLI
+FROM node:18-alpine AS node-builder
+
+# Install Node.js dependencies
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Install global MCP servers
+RUN npm install -g @modelcontextprotocol/server-filesystem \
+    @modelcontextprotocol/server-memory \
+    @modelcontextprotocol/server-brave-search
+
+FROM golang:1.21-alpine AS go-builder
+
+# Build Go MCP server
+WORKDIR /app
+COPY mcp-genmedia-go/ ./
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o mcp-genmedia-server .
+
+FROM python:3.11-slim AS python-builder
+
+# Install Python dependencies
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Install additional dependencies for Vertex AI
+RUN pip install --no-cache-dir --user \
+    google-cloud-aiplatform \
+    google-auth \
+    google-auth-oauthlib \
+    google-cloud-storage \
+    google-generativeai
+
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    jq \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs
+
+# Install Google Cloud CLI
+RUN curl https://sdk.cloud.google.com | bash
+ENV PATH="/root/google-cloud-sdk/bin:${PATH}"
+
+# Create app user
+RUN useradd --create-home --shell /bin/bash app
+USER app
+WORKDIR /home/app
+
+# Copy Python dependencies
+COPY --from=python-builder /root/.local /home/app/.local
+ENV PATH="/home/app/.local/bin:${PATH}"
+
+# Copy Node.js dependencies and global packages
+COPY --from=node-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node-builder /usr/local/bin /usr/local/bin
+
+# Copy Go binary
+COPY --from=go-builder /app/mcp-genmedia-server /home/app/bin/
+
+# Create necessary directories
+RUN mkdir -p /home/app/.config/mcp /home/app/.config/gemini /home/app/bin
+
+# Copy configuration files
+COPY mcp-config.json /home/app/.config/mcp/config.json
+COPY gemini-extension.json /home/app/gemini-extension.json
+
+# Copy entrypoint script
+COPY docker/entrypoint.sh /home/app/entrypoint.sh
+RUN chmod +x /home/app/entrypoint.sh
+
+# Set environment variables
+ENV PROJECT_ID=""
+ENV LOCATION="us-central1"
+ENV GENMEDIA_BUCKET=""
+ENV BRAVE_API_KEY=""
+ENV PATH="/home/app/bin:${PATH}"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Expose port for health checks and API
+EXPOSE 8080
+
+# Set entrypoint
+ENTRYPOINT ["/home/app/entrypoint.sh"]
+CMD ["serve"]

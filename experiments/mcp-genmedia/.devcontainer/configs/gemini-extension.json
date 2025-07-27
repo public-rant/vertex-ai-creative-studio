@@ -1,0 +1,51 @@
+{
+  "name": "google-genmedia-extension",
+  "version": "1.0.0",
+  "mcpServers": {
+    "veo": {
+      "command": "${GOPATH}/bin/mcp-veo-go",
+      "env": {
+        "MCP_REQUEST_MAX_TOTAL_TIMEOUT": "240000",
+        "MCP_SERVER_REQUEST_TIMEOUT": "30000",
+        "GENMEDIA_BUCKET": "${GENMEDIA_BUCKET}",
+        "PROJECT_ID": "${PROJECT_ID}",
+        "LOCATION": "${LOCATION}"
+      }
+    },
+    "imagen": {
+      "command": "${GOPATH}/bin/mcp-imagen-go",
+      "env": {
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "GENMEDIA_BUCKET": "${GENMEDIA_BUCKET}",
+        "PROJECT_ID": "${PROJECT_ID}",
+        "LOCATION": "${LOCATION}"
+      }
+    },
+    "chirp3-hd": {
+      "command": "${GOPATH}/bin/mcp-chirp3-go",
+      "env": {
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "GENMEDIA_BUCKET": "${GENMEDIA_BUCKET}",
+        "PROJECT_ID": "${PROJECT_ID}",
+        "LOCATION": "${LOCATION}"
+      }
+    },
+    "lyria": {
+      "command": "${GOPATH}/bin/mcp-lyria-go",
+      "env": {
+        "GENMEDIA_BUCKET": "${GENMEDIA_BUCKET}",
+        "PROJECT_ID": "${PROJECT_ID}",
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "LOCATION": "${LOCATION}"
+      }
+    },
+    "avtool": {
+      "command": "${GOPATH}/bin/mcp-avtool-go",
+      "env": {
+        "PROJECT_ID": "${PROJECT_ID}",
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "LOCATION": "${LOCATION}"
+      }
+    }
+  }
+}

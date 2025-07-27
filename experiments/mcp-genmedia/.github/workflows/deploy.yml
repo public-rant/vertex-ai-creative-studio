@@ -1,0 +1,275 @@
+name: Deploy MCP Genmedia to Google Cloud
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'experiments/mcp-genmedia/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'experiments/mcp-genmedia/**'
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE_NAME: mcp-genmedia
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Install Node.js dependencies
+        run: |
+          npm install -g @modelcontextprotocol/server-filesystem
+          npm install -g @modelcontextprotocol/server-memory
+          npm install -g @modelcontextprotocol/server-brave-search
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-cloud-aiplatform google-auth google-auth-oauthlib google-cloud-storage google-generativeai
+
+      - name: Build Go MCP server
+        working-directory: experiments/mcp-genmedia
+        run: |
+          if [ -d "mcp-genmedia-go" ]; then
+            cd mcp-genmedia-go
+            go mod tidy
+            go build -o ../bin/mcp-genmedia-server .
+          fi
+
+      - name: Run tests
+        working-directory: experiments/mcp-genmedia
+        run: |
+          # Create test environment
+          mkdir -p ~/.config/mcp
+          cp mcp-config.json ~/.config/mcp/config.json || true
+
+          # Run connectivity tests if available
+          if [ -f "test-mcp-connectivity.sh" ]; then
+            chmod +x test-mcp-connectivity.sh
+            ./test-mcp-connectivity.sh || true
+          fi
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'experiments/mcp-genmedia'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  deploy:
+    name: Deploy to Google Cloud
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test, security-scan]
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Configure Docker to use gcloud as a credential helper
+        run: |
+          gcloud auth configure-docker
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build and push Docker image
+        working-directory: experiments/mcp-genmedia
+        run: |
+          # Build the image
+          docker build \
+            -f docker/Dockerfile.production \
+            -t gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA \
+            -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            .
+
+          # Push the images
+          docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA
+          docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
+
+      - name: Deploy to Cloud Run
+        working-directory: experiments/mcp-genmedia
+        run: |
+          # Deploy the service
+          gcloud run deploy $SERVICE_NAME \
+            --image gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA \
+            --region $REGION \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 2Gi \
+            --cpu 2 \
+            --timeout 900 \
+            --concurrency 10 \
+            --set-env-vars "PROJECT_ID=$PROJECT_ID,LOCATION=$REGION,GENMEDIA_BUCKET=$PROJECT_ID-genmedia" \
+            --service-account mcp-genmedia-runner@$PROJECT_ID.iam.gserviceaccount.com
+
+      - name: Verify deployment
+        run: |
+          # Get the service URL
+          SERVICE_URL=$(gcloud run services describe $SERVICE_NAME \
+            --region $REGION \
+            --format 'value(status.url)')
+
+          echo "Service deployed at: $SERVICE_URL"
+
+          # Wait for service to be ready
+          sleep 30
+
+          # Test health endpoint
+          if curl -sf "$SERVICE_URL/health" > /dev/null; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Health check failed"
+            exit 1
+          fi
+
+      - name: Update cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "🎉 Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi
+
+  cleanup:
+    name: Cleanup old revisions
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [deploy]
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Clean up old Cloud Run revisions
+        run: |
+          # Keep only the latest 5 revisions
+          OLD_REVISIONS=$(gcloud run revisions list \
+            --service=$SERVICE_NAME \
+            --region=$REGION \
+            --format="value(metadata.name)" \
+            --sort-by="~metadata.creationTimestamp" \
+            --limit=100 | tail -n +6)
+
+          if [ -n "$OLD_REVISIONS" ]; then
+            echo "Cleaning up old revisions..."
+            echo "$OLD_REVISIONS" | while read revision; do
+              echo "Deleting revision: $revision"
+              gcloud run revisions delete $revision --region=$REGION --quiet
+            done
+          else
+            echo "No old revisions to clean up"
+          fi
+
+      - name: Clean up old container images
+        run: |
+          # Clean up images older than 30 days
+          OLD_IMAGES=$(gcloud container images list-tags gcr.io/$PROJECT_ID/$SERVICE_NAME \
+            --format="get(digest)" \
+            --filter="timestamp.datetime < '$(date -d '30 days ago' -Iseconds)'" \
+            --limit=50)
+
+          if [ -n "$OLD_IMAGES" ]; then
+            echo "Cleaning up old container images..."
+            echo "$OLD_IMAGES" | while read digest; do
+              echo "Deleting image: gcr.io/$PROJECT_ID/$SERVICE_NAME@$digest"
+              gcloud container images delete gcr.io/$PROJECT_ID/$SERVICE_NAME@$digest --quiet
+            done
+          else
+            echo "No old container images to clean up"
+          fi
+
+  notify:
+    name: Notify deployment result
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    needs: [deploy, cleanup]
+
+    steps:
+      - name: Send notification
+        if: always()
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "🎉 MCP Genmedia deployed successfully to ${{ env.REGION }}"
+            # Add Slack/Discord/email notification here if needed
+          else
+            echo "❌ MCP Genmedia deployment failed"
+            # Add failure notification here if needed
+          fi

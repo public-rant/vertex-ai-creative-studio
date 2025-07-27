@@ -1,0 +1,18 @@
+# Terraform variables for MCP Genmedia deployment
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required: Your Google Cloud Project ID
+project_id = "your-project-id"
+
+# Optional: GCP region (default: us-central1)
+region = "us-central1"
+
+# Optional: GCP zone (default: us-central1-a)
+zone = "us-central1-a"
+
+# Optional: Custom bucket name (default: {project_id}-genmedia)
+genmedia_bucket_name = null
+
+# Optional: Brave Search API key for web search capabilities
+# Get your API key from: https://api.search.brave.com/
+brave_api_key = ""

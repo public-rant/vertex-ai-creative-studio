@@ -1,0 +1,51 @@
+{
+  "name": "google-genmedia-extension",
+  "version": "1.0.0",
+  "mcpServers": {
+    "veo": {
+      "command": "/Users/rant/go/bin/mcp-veo-go",
+      "env": {
+        "MCP_REQUEST_MAX_TOTAL_TIMEOUT": "240000",
+        "MCP_SERVER_REQUEST_TIMEOUT": "30000",
+        "GENMEDIA_BUCKET": "recopy-trial-unpopular-mcp-genmedia",
+        "PROJECT_ID": "recopy-trial-unpopular",
+        "LOCATION": "us-central1"
+      }
+    },
+    "imagen": {
+      "command": "/Users/rant/go/bin/mcp-imagen-go",
+      "env": {
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "GENMEDIA_BUCKET": "recopy-trial-unpopular-mcp-genmedia",
+        "PROJECT_ID": "recopy-trial-unpopular",
+        "LOCATION": "us-central1"
+      }
+    },
+    "chirp3-hd": {
+      "command": "/Users/rant/go/bin/mcp-chirp3-go",
+      "env": {
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "GENMEDIA_BUCKET": "recopy-trial-unpopular-mcp-genmedia",
+        "PROJECT_ID": "recopy-trial-unpopular",
+        "LOCATION": "us-central1"
+      }
+    },
+    "lyria": {
+      "command": "/Users/rant/go/bin/mcp-lyria-go",
+      "env": {
+        "GENMEDIA_BUCKET": "recopy-trial-unpopular-mcp-genmedia",
+        "PROJECT_ID": "recopy-trial-unpopular",
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "LOCATION": "us-central1"
+      }
+    },
+    "avtool": {
+      "command": "/Users/rant/go/bin/mcp-avtool-go",
+      "env": {
+        "PROJECT_ID": "recopy-trial-unpopular",
+        "MCP_SERVER_REQUEST_TIMEOUT": "55000",
+        "LOCATION": "us-central1"
+      }
+    }
+  }
+}
