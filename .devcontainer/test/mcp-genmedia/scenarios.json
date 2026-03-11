@@ -1,0 +1,20 @@
+{
+  "avtool-only": {
+    "features": {
+      "mcp-genmedia": {
+        "installAll": false,
+        "installAvtool": true,
+        "installGoogleCloudCli": false,
+        "installNode": true,
+        "installGeminiCli": true
+      }
+    }
+  },
+  "install-all": {
+    "features": {
+      "mcp-genmedia": {
+        "installAll": true
+      }
+    }
+  }
+}

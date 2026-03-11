@@ -1,0 +1,37 @@
+{
+  "id": "mcp-genmedia",
+  "version": "0.1.0",
+  "name": "MCP Genmedia",
+  "documentationURL": "https://github.com/null-hype/vertex-ai-creative-studio/tree/main/.devcontainer/src/mcp-genmedia",
+  "description": "Installs Gemini CLI and Genmedia-oriented MCP server tooling with a minimal default profile.",
+  "options": {
+    "installAll": {
+      "type": "boolean",
+      "default": false,
+      "description": "Install all supported tools and MCP server dependencies."
+    },
+    "installAvtool": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install avtool MCP dependencies (minimal default profile)."
+    },
+    "installGoogleCloudCli": {
+      "type": "boolean",
+      "default": false,
+      "description": "Install the Google Cloud CLI via apt."
+    },
+    "installNode": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install Node.js and npm needed for Gemini CLI and JS MCP servers."
+    },
+    "installGeminiCli": {
+      "type": "boolean",
+      "default": true,
+      "description": "Install Gemini CLI globally via npm."
+    }
+  },
+  "installsAfter": [
+    "ghcr.io/devcontainers/features/common-utils"
+  ]
+}

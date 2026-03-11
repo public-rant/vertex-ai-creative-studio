@@ -127,3 +127,10 @@ gcloud run deploy creative-studio --source . \
 # Disclaimer
 
 This is not an officially supported Google product.
+
+
+## DevContainer feature (MCP Genmedia)
+
+This repository includes a local DevContainer feature for MCP Genmedia tooling at `.devcontainer/src/mcp-genmedia`.
+
+Reviewer notes and commands are documented in `.devcontainer/src/mcp-genmedia/NOTES.md`.

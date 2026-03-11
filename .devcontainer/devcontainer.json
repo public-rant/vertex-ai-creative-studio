@@ -1,0 +1,15 @@
+{
+  "name": "vertex-ai-creative-studio",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "./src/mcp-genmedia": {
+      "installAll": false,
+      "installAvtool": true,
+      "installGoogleCloudCli": false,
+      "installNode": true,
+      "installGeminiCli": true
+    }
+  },
+  "postCreateCommand": "npm install -g @devcontainers/cli",
+  "remoteUser": "vscode"
+}
