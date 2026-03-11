@@ -1,44 +1,38 @@
-FROM mcr.microsoft.com/devcontainers/base:debian-11
+FROM mcr.microsoft.com/devcontainers/base:debian-12
 
-# --- Install Node.js 20.x and npm ---
+ARG GO_VERSION=1.22.6
+
+# Install system dependencies for Genmedia MCP development.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      ffmpeg \
+      gettext-base \
+      jq \
+      python3-venv \
+      python3-pip \
+      shellcheck \
+      ca-certificates \
+      curl \
+      git \
+      unzip \
+      wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20.x.
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update \
-    && apt-get install -y nodejs \
+    && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Install Go 1.22.x ---
-RUN wget https://golang.org/dl/go1.22.4.linux-amd64.tar.gz -O /tmp/go.tar.gz \
-    && sudo tar -C /usr/local -xzf /tmp/go.tar.gz \
-    && rm /tmp/go.tar.gz
+# Install Go toolchain.
+RUN wget -q https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz -O /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm -f /tmp/go.tar.gz
 
-# --- Set Go environment variables for the 'vscode' user ---
-ENV PATH="/usr/local/go/bin:${PATH}"
-ENV GOPATH="/home/vscode/go"
-ENV PATH="${GOPATH}/bin:${PATH}"
+ENV GOPATH=/home/vscode/go
+ENV PATH=/usr/local/go/bin:${GOPATH}/bin:${PATH}
 
-# --- Install additional system tools ---
-RUN apt-get update \
-    && apt-get install -y git curl wget jq gettext-base \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# --- Clone and Build MCP Servers ---
-WORKDIR /tmp/build
-RUN git clone https://github.com/GoogleCloudPlatform/vertex-ai-creative-studio.git \
-    && cd vertex-ai-creative-studio/experiments/mcp-genmedia/mcp-genmedia-go \
-    && go work sync \
-    && go install ./mcp-avtool-go ./mcp-chirp3-go ./mcp-imagen-go ./mcp-lyria-go ./mcp-veo-go \
-    && rm -rf /tmp/build
-
-# Ensure the workspace directory exists for the mounted project code
-WORKDIR /workspace
-
-# Copy scripts directory
-COPY scripts/ /home/vscode/.devcontainer/scripts/
-RUN chmod +x /home/vscode/.devcontainer/scripts/*.sh
-
-# Copy static configuration files
-COPY configs/ /home/vscode/.devcontainer/configs/
-
-USER vscode
+# Keep script and config assets in the workspace-mounted repository.
+WORKDIR /workspaces/vertex-ai-creative-studio/experiments/mcp-genmedia
