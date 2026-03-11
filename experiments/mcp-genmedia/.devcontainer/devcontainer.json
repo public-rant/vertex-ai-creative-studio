@@ -1,18 +1,35 @@
 {
-  "name": "MCP Genmedia + Gemini CLI DevContainer",
-  "dockerFile": "Dockerfile",
+  "name": "MCP Genmedia DevContainer",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/jajera/features/gcloud-cli:1": {}
+    "ghcr.io/devcontainers/features/gcloud-cli:1": {}
   },
-  "postCreateCommand": "/home/vscode/.devcontainer/scripts/configure-gemini.sh",
   "remoteUser": "vscode",
+  "initializeCommand": "bash -lc 'mkdir -p ${HOME}/.config/gcloud'",
+  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/scripts/setup-mcp-servers.sh && bash ${containerWorkspaceFolder}/.devcontainer/scripts/configure-gemini.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-python.python",
+        "ms-vscode.makefile-tools",
+        "googlecloudtools.cloudcode"
+      ]
+    }
+  },
   "mounts": [
     "source=${localEnv:HOME}/.config/gcloud,target=/home/vscode/.config/gcloud,type=bind,consistency=cached"
   ],
-  "env": {
+  "containerEnv": {
     "PROJECT_ID": "${localEnv:PROJECT_ID}",
     "LOCATION": "us-central1",
-    "GENMEDIA_BUCKET": "${localEnv:PROJECT_ID}-mcp-genmedia"
+    "GENMEDIA_BUCKET": "${localEnv:GENMEDIA_BUCKET}",
+    "GOPATH": "/home/vscode/go",
+    "PATH": "/home/vscode/go/bin:${containerEnv:PATH}"
   }
 }
